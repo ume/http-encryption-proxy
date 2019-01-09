@@ -34,8 +34,13 @@ func NewEncryptionProxy(input Input) http.Handler {
 	director := func(req *http.Request) {
 		// Figure out which server to redirect to based on the incoming request.
 		var target *Target
+		var reqPath string
 
-		reqPath := strings.Replace(req.URL.Path, input.RoutePrefix, "", -1)
+		if input.RoutePrefix != "" {
+			reqPath = strings.Replace(req.URL.Path, input.RoutePrefix, "", 1)
+		} else {
+			reqPath = req.URL.Path
+		}
 
 		log.Printf("[%s-REQ] %s\n", req.Method, reqPath)
 
@@ -124,14 +129,23 @@ func NewEncryptionProxy(input Input) http.Handler {
 				return
 			}
 
-			log.Printf("[%s-JSON] %s\n", req.Method, string(encryptedJSON))
+			log.Printf("[%s-ENCRYPT] %s\n", req.Method, string(encryptedJSON))
 			req.Body = ioutil.NopCloser(bytes.NewBuffer(encryptedJSON))
+			req.ContentLength = int64(len(encryptedJSON))
 		}
 
 		finalURL := req.URL.Scheme + "://" + req.URL.Host + req.URL.Path
 
-		log.Printf("[%s-RES] %s\n", req.Method, finalURL)
+		log.Printf("[%s-PROXY-REQ] %s\n", req.Method, finalURL)
 	}
 
-	return &httputil.ReverseProxy{Director: director}
+	modifier := func(res *http.Response) error {
+		go func() {
+			log.Printf("[%s-PROXY-RES] %d %s\n", res.Request.Method, res.StatusCode, res.Request.URL.String())
+		}()
+
+		return nil
+	}
+
+	return &httputil.ReverseProxy{Director: director, ModifyResponse: modifier}
 }
