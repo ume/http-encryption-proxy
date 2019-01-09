@@ -11,6 +11,7 @@ import (
 
 var port = flag.String("port", "4800", "bind address")
 var debug = flag.Bool("debug", false, "debug mode")
+var routePrefix = flag.String("prefix", "", "route prefix")
 
 func main() {
 	flag.Parse()
@@ -25,9 +26,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	handler := proxy.NewEncryptionProxy([]*proxy.Target{
-		&proxy.Target{PathPrefixes: []string{"/v1/projects", "/analytics.js/v1"}, Destination: cdnURL},
-		&proxy.Target{Destination: apiURL, EncryptJSON: true},
+	handler := proxy.NewEncryptionProxy(proxy.Input{
+		RoutePrefix: *routePrefix,
+		Targets: []*proxy.Target{
+			&proxy.Target{PathPrefixes: []string{"/v1/projects", "/analytics.js/v1"}, Destination: cdnURL},
+			&proxy.Target{Destination: apiURL, EncryptJSON: true},
+		},
 	})
 
 	if *debug {

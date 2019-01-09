@@ -28,22 +28,26 @@ func singleJoiningSlash(a, b string) string {
 
 // NewEncryptionProxy returns an HTTP handler capable of proxying
 // multiple targets (hosts or paths) with built-in encryption.
-func NewEncryptionProxy(targets []*Target) http.Handler {
+func NewEncryptionProxy(input Input) http.Handler {
+	targets := input.Targets
+
 	director := func(req *http.Request) {
 		// Figure out which server to redirect to based on the incoming request.
 		var target *Target
 
-		log.Printf("[%s-REQ] %s\n", req.Method, req.URL.Path)
+		reqPath := strings.Replace(req.URL.Path, input.RoutePrefix, "", -1)
+
+		log.Printf("[%s-REQ] %s\n", req.Method, reqPath)
 
 		for _, t := range targets {
 			if len(t.PathPrefixes) > 0 {
 				for _, prefix := range t.PathPrefixes {
-					if strings.HasPrefix(req.URL.String(), prefix) {
+					if strings.HasPrefix(reqPath, prefix) {
 						target = t
 					}
 				}
 			} else if t.PathPrefix != "" {
-				if strings.HasPrefix(req.URL.String(), t.PathPrefix) {
+				if strings.HasPrefix(reqPath, t.PathPrefix) {
 					target = t
 				}
 			} else {
@@ -58,7 +62,7 @@ func NewEncryptionProxy(targets []*Target) http.Handler {
 		targetQuery := target.Destination.RawQuery
 		req.URL.Scheme = target.Destination.Scheme
 		req.URL.Host = target.Destination.Host
-		req.URL.Path = singleJoiningSlash(target.Destination.Path, req.URL.Path)
+		req.URL.Path = singleJoiningSlash(target.Destination.Path, reqPath)
 
 		if targetQuery == "" || req.URL.RawQuery == "" {
 			req.URL.RawQuery = targetQuery + req.URL.RawQuery
