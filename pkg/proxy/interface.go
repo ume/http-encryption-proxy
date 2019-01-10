@@ -19,4 +19,5 @@ type Target struct {
 	PathPrefixes []string
 	Destination  *url.URL
 	EncryptJSON  bool
+	DropGzip     bool
 }

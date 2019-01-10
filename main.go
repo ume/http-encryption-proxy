@@ -29,7 +29,7 @@ func main() {
 	handler := proxy.NewEncryptionProxy(proxy.Input{
 		RoutePrefix: *routePrefix,
 		Targets: []*proxy.Target{
-			&proxy.Target{PathPrefixes: []string{"/v1/projects", "/analytics.js/v1"}, Destination: cdnURL},
+			&proxy.Target{PathPrefixes: []string{"/v1/projects", "/analytics.js/v1"}, Destination: cdnURL, DropGzip: true},
 			&proxy.Target{Destination: apiURL, EncryptJSON: true},
 		},
 	})

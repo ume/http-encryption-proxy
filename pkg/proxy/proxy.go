@@ -134,6 +134,11 @@ func NewEncryptionProxy(input Input) http.Handler {
 			req.ContentLength = int64(len(encryptedJSON))
 		}
 
+		if target.DropGzip {
+			req.Header.Del("content-encoding")
+			req.Header.Del("Content-Encoding")
+		}
+
 		finalURL := req.URL.Scheme + "://" + req.URL.Host + req.URL.Path
 
 		log.Printf("[%s-PROXY-REQ] %s\n", req.Method, finalURL)
