@@ -32,8 +32,6 @@ func NewEncryptionProxy(input Input) http.Handler {
 	targets := input.Targets
 
 	director := func(req *http.Request) {
-		// Figure out which server to redirect to based on the incoming request.
-		var target *Target
 		var reqPath string
 
 		if input.RoutePrefix != "" {
@@ -44,25 +42,7 @@ func NewEncryptionProxy(input Input) http.Handler {
 
 		log.Printf("[%s-REQ] %s\n", req.Method, reqPath)
 
-		for _, t := range targets {
-			if len(t.PathPrefixes) > 0 {
-				for _, prefix := range t.PathPrefixes {
-					if strings.HasPrefix(reqPath, prefix) {
-						target = t
-					}
-				}
-			} else if t.PathPrefix != "" {
-				if strings.HasPrefix(reqPath, t.PathPrefix) {
-					target = t
-				}
-			} else {
-				target = t
-			}
-
-			if target != nil {
-				break
-			}
-		}
+		target := findTarget(targets, reqPath)
 
 		targetQuery := target.Destination.RawQuery
 		req.URL.Scheme = target.Destination.Scheme
@@ -134,11 +114,6 @@ func NewEncryptionProxy(input Input) http.Handler {
 			req.ContentLength = int64(len(encryptedJSON))
 		}
 
-		if target.DropGzip {
-			req.Header.Del("content-encoding")
-			req.Header.Del("Content-Encoding")
-		}
-
 		finalURL := req.URL.Scheme + "://" + req.URL.Host + req.URL.Path
 
 		log.Printf("[%s-PROXY-REQ] %s\n", req.Method, finalURL)
@@ -149,8 +124,42 @@ func NewEncryptionProxy(input Input) http.Handler {
 			log.Printf("[%s-PROXY-RES] %d %s\n", res.Request.Method, res.StatusCode, res.Request.URL.String())
 		}()
 
+		target := findTarget(targets, res.Request.URL.Path)
+
+		if target.DropGzip {
+			res.Header.Del("content-encoding")
+			res.Header.Del("Content-Encoding")
+		}
+
 		return nil
 	}
 
 	return &httputil.ReverseProxy{Director: director, ModifyResponse: modifier}
+}
+
+func findTarget(targets []*Target, reqPath string) *Target {
+	// Figure out which server to redirect to based on the incoming request.
+	var target *Target
+
+	for _, t := range targets {
+		if len(t.PathPrefixes) > 0 {
+			for _, prefix := range t.PathPrefixes {
+				if strings.HasPrefix(reqPath, prefix) {
+					target = t
+				}
+			}
+		} else if t.PathPrefix != "" {
+			if strings.HasPrefix(reqPath, t.PathPrefix) {
+				target = t
+			}
+		} else {
+			target = t
+		}
+
+		if target != nil {
+			break
+		}
+	}
+
+	return target
 }
